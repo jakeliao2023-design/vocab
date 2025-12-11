@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>泰语↔中文 背词小测 · 在线版（FULL · 匿名/Google 同步）</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#ffffff; --text:#1f2328; --muted:#6a737d; --accent:#0a7; --danger:#c00; --warn:#b45309; }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Microsoft YaHei",sans-serif;line-height:1.6}
+  header{position:sticky;top:0;background:linear-gradient(180deg,#fff,rgba(255,255,255,0.85));backdrop-filter:blur(6px);border-bottom:1px solid #eee;z-index:9}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:8px 0}
+  .card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);padding:16px;margin:16px 0}
+  textarea{width:100%;min-height:140px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;border-radius:10px;border:1px solid #ddd;padding:12px;box-sizing:border-box}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;background:#111;color:#fff}
+  .btn.alt{background:#eaeef2;color:#111}
+  .btn.accent{background:var(--accent);color:#fff}
+  .btn.danger{background:var(--danger);color:#fff}
+  .btn.warn{background:var(--warn);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .pill{padding:4px 8px;background:#eef2f7;border-radius:999px;font-size:12px}
+  .muted{color:var(--muted);font-size:14px}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:#111;border-radius:50%;animation:spin 1s linear infinite;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .warn{color:var(--warn)} .ok{color:#0a7} .err{color:var(--danger)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .option{border:1px solid #ddd;border-radius:10px;padding:12px;cursor:pointer;background:#fff;text-align:left}
+  .option.correct{border-color:#0a7;background:#eafff6}
+  .option.wrong{border-color:#d00;background:#ffecec}
+  .prompt{font-size:28px;font-weight:700;margin:6px 0 12px;word-break:break-word}
+  .stats{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  progress{width:180px;height:14px}
+  input[type="text"]{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>泰语↔中文 背词小测 · 在线版（FULL · 匿名/Google 同步）</h1>
+    <div class="muted">✅ 匿名/Google 登录　✅ 云保存/读取（覆盖/合并/分包）　✅ 错题本/只练错题　✅ 轻量SRS　✅ 本地备份</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="row">
+      <b>登录</b>
+      <button class="btn accent" id="btnAnon">匿名登录</button>
+      <button class="btn alt" id="btnGoogle">用 Google 登录</button>
+      <button class="btn warn" id="btnLink">把当前匿名账号升级为 Google</button>
+      <button class="btn" id="btnSignOut" disabled>退出</button>
+      <span class="pill" id="uid">未登录</span>
+      <span class="pill" id="provider">—</span>
+    </div>
+    <div class="row">
+      <b>云端</b>
+      <button class="btn alt" id="btnSaveCover" disabled>保存到云端（覆盖）</button>
+      <button class="btn alt" id="btnSaveMerge" disabled>保存到云端（合并）</button>
+      <button class="btn alt" id="btnLoad" disabled>从云端读取</button>
+      <span class="pill" id="lastSync">上次同步：—</span>
+    </div>
+    <div class="row">
+      <span>当前词条：<b id="bankSize">0</b> 条；估算 payload：<b id="payloadSize">0</b> KB（单文档上限约 1024 KB）</span>
+      <span id="sizeWarn" class="warn"></span>
+    </div>
+    <div class="row">
+      <span id="busy" style="display:none"><span class="spinner"></span> <span id="busyMsg">处理中…</span></span>
+      <span><b>提示：</b><span id="hint">—</span></span>
+      <span><b>错误：</b><span id="err" class="err">—</span></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <b>词表</b>
+      <button class="btn alt" id="btnLoadSample">填充示例</button>
+      <input type="file" id="fileInput" accept=".csv,.txt,.json" class="btn alt" style="padding:8px 10px;background:#fff;border:1px solid #ddd" />
+      <button class="btn" id="btnParse">解析到题库</button>
+      <button class="btn alt" id="btnExportJSON">导出本地备份</button>
+      <button class="btn danger" id="btnClearLocal">清除本机数据</button>
+    </div>
+    <textarea id="raw" placeholder="รัก,爱,rak
+คิดถึง,想念,kít-thǔeng
+เรียน,学习,rian
+สวย,漂亮,sǔai
+เร็ว,快,reo
+ช้า,慢,cháa"></textarea>
+    <div class="muted">每行 <b>泰语,中文,读音/备注(可选)</b>；也支持导入 JSON。</div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <b>出题设置</b>
+      <label><input type="radio" name="mode" value="mc" checked> 选择题</label>
+      <label><input type="radio" name="mode" value="type"> 填空</label>
+      <label><input type="checkbox" id="caseTone"> 填空忽略声调/大小写</label>
+      <label><input type="checkbox" id="shuffle" checked> 随机顺序</label>
+      <label>选项数
+        <select id="optCount"><option>4</option><option>5</option><option>6</option></select>
+      </label>
+    </div>
+    <div class="row">
+      <b>方向</b>
+      <label><input type="radio" name="dir" value="th2zh" checked> 泰 → 中</label>
+      <label><input type="radio" name="dir" value="zh2th"> 中 → 泰</label>
+      <b>题源</b>
+      <label><input type="radio" name="scope" value="all" checked> 全部</label>
+      <label><input type="radio" name="scope" value="wrongs"> 仅错题</label>
+      <button class="btn accent" id="btnStart">开始测验</button>
+      <button class="btn alt" id="btnReset" disabled>重置</button>
+    </div>
+  </section>
+
+  <section class="card" id="quiz" style="display:none">
+    <div class="stats">
+      <span class="pill" id="counter">0/0</span>
+      <span>✔️ <b id="ok">0</b>　❌ <b id="ng">0</b></span>
+      <span>错题本：<b id="wrongSize">0</b> 条</span>
+      <progress id="pg" max="100" value="0"></progress>
+      <button class="btn alt" id="btnWrongRound" style="margin-left:auto">只练错题</button>
+    </div>
+    <div class="prompt" id="prompt">—</div>
+    <div id="reading" class="muted"></div>
+    <div id="mc" class="grid"></div>
+    <div id="typeBox" style="display:none">
+      <input type="text" id="answer" placeholder="请输入答案…" autocomplete="off" />
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnCheck">判分</button>
+        <button class="btn alt" id="btnShow">显示答案</button>
+        <span class="muted" id="feedback"></span>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="btnNext">下一题</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>ℹ️ 故障排查（点开）</summary>
+      <ul>
+        <li>若保存/读取失败，多半是未登录、域名未加入 <code>Authorized domains</code>，或 Firestore 规则未发布。</li>
+        <li>iOS/Safari 登录建议使用“用 Google 登录”（会自动使用重定向方式）。</li>
+        <li>控制台查看详细错误：按 F12 → Console。</li>
+      </ul>
+    </details>
+  </section>
+
+</main>
+
+<script type="module">
+/** ===== Firebase 配置（已内置你的项目） ===== */
+const FIREBASE_CONFIG = {
+  "apiKey": "AIzaSyCOUufBRgdFnFO-OD819RtdE51mEQWfYd0",
+  "authDomain": "vocab-d3783.firebaseapp.com",
+  "projectId": "vocab-d3783",
+  "storageBucket": "vocab-d3783.firebasestorage.app",
+  "messagingSenderId": "330856057864",
+  "appId": "1:330856057864:web:1485b9cbf11e03ac2c15bd"
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged, signOut,
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  linkWithPopup, linkWithRedirect
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+// Handle redirect result (for iOS/Safari)
+getRedirectResult(auth).then((res)=>{
+  if(res && res.user){ console.log('redirect ok'); }
+}).catch(e=>console.warn('redirect error', e));
+
+const $ = s=>document.querySelector(s);
+const $$ = s=>[...document.querySelectorAll(s)];
+function setBusy(on,msg){ $('#busy').style.display=on?'':'none'; $('#busyMsg').textContent=msg||'处理中…'; }
+function setHint(msg){ $('#hint').textContent=msg||'—'; console.log('[HINT]', msg); }
+function setErr(e){ const txt = e? (e.message||String(e)) : '—'; $('#err').textContent = txt; if(e) console.error(e); }
+function setLastSync(ts){ $('#lastSync').textContent='上次同步：'+(ts? new Date(ts).toLocaleString():'—'); }
+function updateSizeInfo(){
+  const encoder = new TextEncoder();
+  const payload = { bank, wrongs:[...wrongs] };
+  const bytes = encoder.encode(JSON.stringify(payload)).length;
+  $('#bankSize').textContent = bank.length;
+  $('#payloadSize').textContent = Math.round(bytes/1024);
+  const warn = bytes > 900*1024 ? '⚠️ 预计超过 Firestore 单文档大小，保存时会自动分包。' : '';
+  $('#sizeWarn').textContent = warn;
+}
+function isIOSorSafari(){
+  const ua = navigator.userAgent;
+  return /iPhone|iPad/i.test(ua) || (/Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Android/i.test(ua));
+}
+
+/** ===== 状态 & 本地存储 ===== */
+let user=null;
+let bank=[];      // [{cid, th, zh, note, ok, ng}]
+let queue=[]; let idx=0, ok=0, ng=0; let wrongs=new Set();
+let mode="mc", dir="th2zh", scope="all", optCount=4;
+const LS_KEY='thai_vocab_quiz_cloud';
+
+function persistLocal(){ localStorage.setItem(LS_KEY, JSON.stringify({bank, wrongs:[...wrongs], ts:Date.now()})); updateSizeInfo(); }
+function restoreLocal(){
+  const s=localStorage.getItem(LS_KEY); if(!s) return false;
+  try{ const d=JSON.parse(s); bank=d.bank||[]; wrongs=new Set(d.wrongs||[]); reindexBank(); setStats(); updateSizeInfo(); return bank.length>0; }
+  catch{ return false; }
+}
+function reindexBank(){ bank = bank.map((x,i)=>({cid:i, th:x.th, zh:x.zh, note:x.note||"", ok:x.ok||0, ng:x.ng||0})); }
+
+/** ===== CSV/JSON 解析 ===== */
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const rows=[];
+  for(const line of lines){
+    let m=line.match(/^"(.*)","(.*)"(?:,"(.*)")?$/);
+    if(m){ rows.push([m[1],m[2],m[3]||""]); continue; }
+    const cols=[]; let cur="",inQ=false;
+    for(const ch of line){
+      if(ch=='"'){ inQ=!inQ; continue; }
+      if(ch==',' && !inQ){ cols.push(cur.trim()); cur=""; } else cur+=ch;
+    }
+    cols.push(cur.trim());
+    if(cols.length>=2) rows.push([cols[0], cols[1], cols[2]||""]);
+  }
+  return rows.map(r=>({th:r[0], zh:r[1], note:r[2]||""}));
+}
+
+/** ===== 出题与答题 ===== */
+function shuffle(a){ for(let j=a.length-1;j>0;j--){ const k=Math.floor(Math.random()*(j+1)); [a[j],a[k]]=[a[k],a[j]]; } return a; }
+function buildQueue(){
+  let ids = bank.map(x=>x.cid);
+  if(scope==='wrongs'){ ids = ids.filter(id=>wrongs.has(id)); if(ids.length===0){ alert('错题本为空'); return false; } }
+  queue = [...ids];
+  if($('#shuffle').checked) shuffle(queue);
+  idx=0; ok=0; ng=0;
+  return true;
+}
+function startQuiz(){
+  mode = $$('input[name="mode"]').find(x=>x.checked).value;
+  dir  = $$('input[name="dir"]').find(x=>x.checked).value;
+  scope = $$('input[name="scope"]').find(x=>x.checked).value;
+  optCount = parseInt($('#optCount').value, 10);
+  if(!bank.length){ alert('请先解析词表'); return; }
+  if(!buildQueue()) return;
+  $('#quiz').style.display='';
+  $('#btnReset').disabled=false;
+  nextQuestion();
+  persistLocal();
+}
+function getCard(cid){ return bank.find(x=>x.cid===cid); }
+function pickOptions(correctId){
+  const pool = bank.map(x=>x.cid).filter(id=>id!==correctId);
+  shuffle(pool);
+  const picks = pool.slice(0, Math.max(0,optCount-1));
+  return shuffle([correctId, ...picks]);
+}
+function renderMC(card){
+  const container = $('#mc'); container.innerHTML=''; $('#typeBox').style.display='none'; container.style.display='grid';
+  const opts = pickOptions(card.cid);
+  for(const cid of opts){
+    const it = getCard(cid);
+    const text = (dir==='th2zh') ? it.zh : it.th;
+    const div = document.createElement('button');
+    div.className='option'; div.textContent=text;
+    div.onclick = ()=> checkAnswer(cid===card.cid, card);
+    container.appendChild(div);
+  }
+}
+function renderType(card){
+  $('#mc').style.display='none'; $('#typeBox').style.display=''; $('#answer').value=''; $('#feedback').textContent='';
+}
+function showPrompt(card){
+  const prompt = (dir==='th2zh') ? card.th : card.zh;
+  $('#prompt').textContent = prompt;
+  $('#reading').textContent = card.note ? ('提示：'+card.note) : '';
+}
+function lightSRSRequeue(card, wasCorrect){
+  const stepBase = 4;
+  if(!wasCorrect){
+    const insertAt = Math.min(queue.length, idx + Math.max(2, stepBase - Math.min(3, card.ng)));
+    queue.splice(insertAt, 0, card.cid);
+  }else{
+    if(wrongs.has(card.cid) && card.ok >= 2) wrongs.delete(card.cid);
+  }
+}
+function checkAnswer(isCorrect, card){
+  if(isCorrect){
+    ok++; card.ok++; markButtons(card, true); lightSRSRequeue(card, true);
+  }else{
+    ng++; card.ng++; wrongs.add(card.cid); markButtons(card, false); lightSRSRequeue(card, false);
+  }
+  setStats(); persistLocal(); setTimeout(nextQuestion, 420);
+}
+function markButtons(card, wasCorrect){
+  const target = (dir==='th2zh')?card.zh:card.th;
+  [...$('#mc').children].forEach(b=>{
+    if(b.textContent===target) b.classList.add('correct');
+    else b.classList.add('wrong');
+    b.disabled=true;
+  });
+}
+function nextQuestion(){
+  if(idx>=queue.length){
+    $('#pg').value=100; $('#reading').textContent=''; $('#mc').innerHTML=''; $('#typeBox').style.display='none';
+    $('#prompt').textContent = wrongs.size>0 ? `完成！✔️${ok} / ❌${ng}。错题本 ${wrongs.size} 条，可“只练错题”。` : `完成！✔️${ok} / ❌${ng}。没有错题，真棒！`;
+    return;
+  }
+  const cid = queue[idx++]; const card = getCard(cid);
+  showPrompt(card); (mode==='mc') ? renderMC(card) : renderType(card); setStats();
+}
+function normalize(s){
+  if(!s) return "";
+  if($('#caseTone').checked){
+    const map = {'á':'a','à':'a','â':'a','ǎ':'a','ā':'a','é':'e','è':'e','ê':'e','ě':'e','ē':'e','í':'i','ì':'i','î':'i','ǐ':'i','ī':'i','ó':'o','ò':'o','ô':'o','ǒ':'o','ō':'o','ú':'u','ù':'u','û':'u','ǔ':'u','ū':'u','ǘ':'u','ǜ':'u','ǚ':'u','ǖ':'u'};
+    s=[...s].map(ch=>map[ch]||ch).join('').toLowerCase();
+  }
+  return s.trim();
+}
+function checkType(){
+  const card = getCard(queue[idx-1]);
+  const ans = $('#answer').value;
+  const target = (dir==='th2zh') ? card.zh : card.th;
+  const correct = normalize(ans)===normalize(target);
+  if(correct){ $('#feedback').textContent='✅ 正确！'; ok++; card.ok++; lightSRSRequeue(card,true); }
+  else { $('#feedback').textContent='❌ 正确：'+target; ng++; card.ng++; wrongs.add(card.cid); lightSRSRequeue(card,false); }
+  setStats(); persistLocal();
+}
+function wrongRound(){
+  scope='wrongs'; $$('input[name="scope"]').forEach(x=>x.checked=(x.value==='wrongs'));
+  if(!buildQueue()) return;
+  $('#quiz').style.display=''; nextQuestion(); persistLocal();
+}
+function setStats(){
+  $('#counter').textContent = (Math.min(idx+1, queue.length))+'/'+queue.length;
+  $('#ok').textContent = ok; $('#ng').textContent = ng;
+  $('#pg').value = queue.length ? Math.round((idx/queue.length)*100) : 0;
+  $('#wrongSize').textContent = wrongs.size;
+}
+
+/** ===== 云端保存（覆盖/分包 & 合并） ===== */
+function chunkArray(arr, size){ const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out; }
+async function saveAsMain(ref, payload){ await setDoc(ref, payload); }
+async function saveAsPacks(items){
+  const PACK_SIZE = 200;
+  const packs = chunkArray(items, PACK_SIZE);
+  const idxRef = doc(db, 'users', user.uid, 'vocab_packs', 'index');
+  await setDoc(idxRef, { count:packs.length, updatedAt:Date.now() });
+  for(let i=0;i<packs.length;i++){
+    const pRef = doc(db, 'users', user.uid, 'vocab_packs', 'pack_'+(i+1));
+    await setDoc(pRef, { bank:packs[i] });
+  }
+  await deleteDoc(doc(db, 'users', user.uid, 'vocab', 'main')).catch(()=>{});
+}
+async function cloudSave(mode='cover'){
+  if(!user){ setHint('请先登录'); return; }
+  try{
+    setBusy(true, '正在保存到云端…');
+    toggleCloudButtons(true);
+    let items = bank;
+    if(mode==='merge'){
+      const cloud = await cloudLoad(true);
+      if(cloud && cloud.length){
+        const map = new Map(cloud.map(x=>[x.th, x]));
+        for(const it of bank){ map.set(it.th, it); }
+        items = [...map.values()];
+      }
+    }
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(JSON.stringify({bank:items, wrongs:[...wrongs]})).length;
+    if(bytes <= 900*1024){
+      await saveAsMain(doc(db,'users',user.uid,'vocab','main'), { bank: items, wrongs:[...wrongs], updatedAt:Date.now() });
+      await deleteDoc(doc(db,'users',user.uid,'vocab_packs','index')).catch(()=>{});
+      setHint(`云保存成功 ✅（单文档，${items.length} 条）`);
+    }else{
+      await saveAsPacks(items);
+      setHint(`云保存成功 ✅（已分包，共 ${items.length} 条）`);
+    }
+    setErr(null); setLastSync(Date.now());
+  }catch(e){
+    setHint('云保存失败 ❌'); setErr(e);
+  }finally{
+    setBusy(false); toggleCloudButtons(false);
+  }
+}
+function toggleCloudButtons(disabled){
+  $('#btnSaveCover').disabled = disabled || !user;
+  $('#btnSaveMerge').disabled = disabled || !user;
+  $('#btnLoad').disabled = disabled || !user;
+}
+
+/** ===== 云端读取（自动合并 main + packs） ===== */
+async function cloudLoad(silent=false){
+  if(!user){ if(!silent) setHint('请先登录'); return null; }
+  try{
+    if(!silent){ setBusy(true,'正在从云端读取…'); toggleCloudButtons(true); }
+    const mainRef = doc(db,'users',user.uid,'vocab','main');
+    const mainSnap = await getDoc(mainRef);
+    let items = [];
+    if(mainSnap.exists()){
+      const d = mainSnap.data();
+      items = d.bank||[];
+      wrongs = new Set(d.wrongs||[]);
+      setLastSync(d.updatedAt||Date.now());
+    }
+    const idxRef = doc(db,'users',user.uid,'vocab_packs','index');
+    const idxSnap = await getDoc(idxRef);
+    if(idxSnap.exists()){
+      const count = idxSnap.data().count||0;
+      for(let i=1;i<=count;i++){
+        const pRef = doc(db,'users',user.uid,'vocab_packs','pack_'+i);
+        const pSnap = await getDoc(pRef);
+        if(pSnap.exists()){
+          const pb = pSnap.data().bank||[];
+          items = items.concat(pb);
+        }
+      }
+    }
+    if(!silent){
+      if(items.length===0){ setHint('云端暂无数据'); setErr(null); }
+      else { setHint('云读取成功：'+items.length+' 条'); setErr(null); }
+    }
+    bank = items; reindexBank(); persistLocal(); setStats();
+    return items;
+  }catch(e){
+    if(!silent){ setHint('云读取失败 ❌'); setErr(e); }
+    return null;
+  }finally{
+    if(!silent){ setBusy(false); toggleCloudButtons(false); }
+  }
+}
+
+/** ===== 登录相关：匿名 / Google / 匿名升级为 Google ===== */
+function showUser(u){
+  $('#uid').textContent = u ? ('UID: '+u.uid) : '未登录';
+  const prov = u ? (u.isAnonymous ? '匿名' : (u.providerData[0]?.providerId||'已登录')) : '—';
+  $('#provider').textContent = '身份：'+prov;
+  const on = !!u;
+  $('#btnSignOut').disabled = !on;
+  toggleCloudButtons(!on);
+}
+onAuthStateChanged(auth, (u)=>{
+  user=u||null; showUser(user);
+  if(user){ cloudLoad(true).then(items=>{ if(items) setHint('登录成功，已尝试载入云端数据'); }); }
+});
+
+$('#btnAnon').onclick = async()=>{
+  try{ setBusy(true,'匿名登录中…'); await signInAnonymously(auth); setHint('匿名登录成功'); }
+  catch(e){ setHint('匿名登录失败'); setErr(e); }
+  finally{ setBusy(false); }
+};
+
+async function googleLogin(){
+  try{
+    setBusy(true, 'Google 登录中…');
+    if(isIOSorSafari()){ await signInWithRedirect(auth, provider); }
+    else { await signInWithPopup(auth, provider); }
+    setHint('Google 登录成功');
+  }catch(e){
+    setHint('Google 登录失败'); setErr(e);
+  }finally{ setBusy(false); }
+}
+$('#btnGoogle').onclick = googleLogin;
+
+async function linkGoogle(){
+  try{
+    const u = auth.currentUser;
+    if(!u){ alert('请先匿名登录'); return; }
+    if(!u.isAnonymous){ alert('当前不是匿名账号，无需升级'); return; }
+    setBusy(true, '升级为 Google 中…');
+    if(isIOSorSafari()){ await linkWithRedirect(u, provider); }
+    else { await linkWithPopup(u, provider); }
+    setHint('已将匿名账号升级为 Google 账号（uid 不变，数据保留）');
+  }catch(e){
+    if(e.code === 'auth/credential-already-in-use' || e.code === 'auth/account-exists-with-different-credential'){
+      setHint('该 Google 账号已绑定其他用户：可先用该账号登录读取其数据；如需合并，请先导出 JSON 再导入合并保存。');
+    }else{
+      setHint('升级失败'); setErr(e);
+    }
+  }finally{ setBusy(false); }
+}
+$('#btnLink').onclick = linkGoogle;
+
+$('#btnSignOut').onclick = async()=>{
+  try{ await signOut(auth); setHint('已退出'); setLastSync(null); }
+  catch(e){ setHint('退出失败'); setErr(e); }
+};
+
+/** ===== UI 绑定：解析/示例/导入/导出/测验 ===== */
+$('#btnParse').onclick = ()=>{
+  const val = $('#raw').value.trim();
+  if(!val){ alert('请先粘贴词表'); return; }
+  if(val.startsWith('{')){
+    try{ const o=JSON.parse(val); bank=(o.bank||o)||[]; wrongs=new Set(o.wrongs||[]); }
+    catch(e){ alert('JSON 解析失败'); return; }
+  }else{ bank = parseCSV(val); }
+  reindexBank(); alert('已解析 '+bank.length+' 条'); setStats(); persistLocal();
+};
+$('#btnLoadSample').onclick = ()=>{
+  $('#raw').value = `รัก,爱,rak
+คิดถึง,想念,kít-thǔeng
+เรียน,学习,rian
+สวย,漂亮,sǔai
+เร็ว,快,reo
+ช้า,慢,cháa`;
+};
+$('#fileInput').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const txt = await f.text();
+  if(f.name.endsWith('.json')){
+    try{ const o = JSON.parse(txt); bank=(o.bank||o)||[]; wrongs=new Set(o.wrongs||[]); }
+    catch(e){ alert('JSON 解析失败'); return; }
+  }else{ bank = parseCSV(txt); }
+  reindexBank(); alert('已读取：'+f.name+'（'+bank.length+' 条）'); setStats(); persistLocal();
+});
+$('#btnClearLocal').onclick = ()=>{ localStorage.removeItem(LS_KEY); wrongs.clear(); bank=[]; reindexBank(); setStats(); updateSizeInfo(); alert('已清除本机数据'); };
+$('#btnExportJSON').onclick = ()=>{
+  const blob = new Blob([JSON.stringify({bank, wrongs:[...wrongs], ts:Date.now()}, null, 2)], {type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='thai_vocab_quiz_backup.json'; a.click(); URL.revokeObjectURL(a.href);
+};
+$('#btnStart').onclick = startQuiz;
+$('#btnReset').onclick = ()=>{ idx=0; ok=0; ng=0; queue=[]; $('#quiz').style.display='none'; $('#pg').value=0; $('#ok').textContent=0; $('#ng').textContent=0; setStats(); };
+$('#btnNext').onclick = nextQuestion;
+$('#btnCheck').onclick = checkType;
+$('#btnShow').onclick = ()=>{ const c=getCard(queue[idx-1]); const t=(dir==='th2zh')?c.zh:c.th; $('#feedback').textContent='📝 答案：'+t; };
+$('#btnWrongRound').onclick = wrongRound;
+
+// 云端按钮
+$('#btnSaveCover').onclick = ()=>cloudSave('cover');
+$('#btnSaveMerge').onclick = ()=>cloudSave('merge');
+$('#btnLoad').onclick = ()=>cloudLoad(false);
+
+// 初始化
+restoreLocal(); updateSizeInfo();
+
+</script>
+</body>
+</html>
