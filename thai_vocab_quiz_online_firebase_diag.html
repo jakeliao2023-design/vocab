@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>泰语↔中文 背词小测 · 在线版 (诊断增强)</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#ffffff; --text:#1f2328; --muted:#6a737d; --accent:#0a7; --danger:#c00; --warn:#b45309; }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Microsoft YaHei",sans-serif;line-height:1.6}
+  header{position:sticky;top:0;background:linear-gradient(180deg,#fff,rgba(255,255,255,0.85));backdrop-filter:blur(6px);border-bottom:1px solid #eee;z-index:9}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:8px 0}
+  .card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);padding:16px;margin:16px 0}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;background:#111;color:#fff}
+  .btn.alt{background:#eaeef2;color:#111}
+  .btn.accent{background:var(--accent);color:#fff}
+  .btn.warn{background:var(--warn);color:#fff}
+  .btn.danger{background:var(--danger);color:#fff}
+  .pill{padding:4px 8px;background:#eef2f7;border-radius:999px;font-size:12px}
+  .muted{color:var(--muted);font-size:14px}
+  .status{border-radius:12px;border:1px solid #e5e7eb;background:#fff;padding:10px 12px;font-size:14px}
+  .ok{color:#0a7} .err{color:#c00} .warn{color:#b45309}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>泰语↔中文 背词小测 · 在线版 (诊断增强)</h1>
+    <div class="muted">带 <b>云状态可视化</b>、<b>Ping 测试</b>、<b>错误详细信息</b>，方便排查。</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="row">
+      <b>云端</b>
+      <button class="btn accent" id="btnSignIn">匿名登录</button>
+      <button class="btn alt" id="btnSignOut" disabled>退出</button>
+      <span class="pill" id="uid">未登录</span>
+      <button class="btn alt" id="btnCloudSave" disabled>保存到云端</button>
+      <button class="btn alt" id="btnCloudLoad" disabled>从云端读取</button>
+      <button class="btn warn" id="btnPing" disabled>Ping 测试</button>
+    </div>
+    <div class="status" id="statusBox">
+      <div><b>云状态：</b><span id="cloudState">未登录</span></div>
+      <div><b>最近事件：</b><span id="lastEvent">—</span></div>
+      <div><b>错误详情：</b><span id="errDetail" class="err">—</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <b>词表</b>
+      <textarea id="raw" style="width:100%;min-height:120px">รัก,爱,rak
+คิดถึง,想念,kít-thǔeng</textarea>
+      <button class="btn alt" id="btnParse">解析到题库</button>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCOUufBRgdFnFO-OD819RtdE51mEQWfYd0",
+  authDomain: "vocab-d3783.firebaseapp.com",
+  projectId: "vocab-d3783",
+  storageBucket: "vocab-d3783.firebasestorage.app",
+  messagingSenderId: "330856057864",
+  appId: "1:330856057864:web:1485b9cbf11e03ac2c15bd"
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const $ = s => document.querySelector(s);
+function setState(msg, cls){ const el=$('#cloudState'); el.textContent=msg; el.className=cls||''; }
+function setEvent(msg){ $('#lastEvent').textContent = msg; }
+function setErr(e){ $('#errDetail').textContent = e? (e.message||String(e)) : '—'; }
+
+let user=null;
+onAuthStateChanged(auth, (u)=>{
+  user=u||null;
+  $('#uid').textContent = user? ('UID: '+user.uid) : '未登录';
+  $('#btnSignOut').disabled = !user;
+  $('#btnCloudSave').disabled = !user;
+  $('#btnCloudLoad').disabled = !user;
+  $('#btnPing').disabled = !user;
+  setState(user? '已登录' : '未登录', user? 'ok':'warn');
+  setEvent('Auth 状态变更');
+  setErr(null);
+});
+
+$('#btnSignIn').addEventListener('click', async()=>{
+  try{ await signInAnonymously(auth); setEvent('匿名登录成功'); }
+  catch(e){ setEvent('匿名登录失败'); setErr(e); }
+});
+$('#btnSignOut').addEventListener('click', async()=>{
+  try{ await signOut(auth); setEvent('已退出'); }
+  catch(e){ setEvent('退出失败'); setErr(e); }
+});
+
+// minimal bank for test
+let bank=[];
+$('#btnParse').addEventListener('click', ()=>{
+  const lines=$('#raw').value.trim().split(/\r?\n/).filter(Boolean);
+  bank = lines.map(l=>{
+    const p=l.split(',');
+    return {th:p[0]?.trim()||'', zh:p[1]?.trim()||'', note:p[2]?.trim()||''};
+  });
+  setEvent('解析到 '+bank.length+' 条词条');
+});
+
+async function cloudSave(){
+  if(!user){ setEvent('未登录'); return; }
+  try{
+    const ref = doc(db, 'users', user.uid, 'vocab', 'main');
+    const payload = { bank, wrongs:[], updatedAt:new Date().toISOString() };
+    await setDoc(ref, payload);
+    setEvent('云保存成功 ✅');
+    setErr(null);
+  }catch(e){ setEvent('云保存失败 ❌'); setErr(e); }
+}
+async function cloudLoad(){
+  if(!user){ setEvent('未登录'); return; }
+  try{
+    const ref = doc(db, 'users', user.uid, 'vocab', 'main');
+    const snap = await getDoc(ref);
+    if(!snap.exists()){ setEvent('云端暂无数据'); setErr(null); return; }
+    const d = snap.data();
+    setEvent('云读取成功：'+(d.bank?.length||0)+' 条');
+    setErr(null);
+  }catch(e){ setEvent('云读取失败 ❌'); setErr(e); }
+}
+async function pingTest(){
+  if(!user){ setEvent('未登录'); return; }
+  try{
+    const ref = doc(db, 'users', user.uid, 'vocab', 'ping');
+    await setDoc(ref, {ts: Date.now()});
+    const snap = await getDoc(ref);
+    const ok = snap.exists();
+    setEvent('Ping '+(ok?'成功 ✅':'失败 ❌'));
+    setErr(null);
+  }catch(e){ setEvent('Ping 失败 ❌'); setErr(e); }
+}
+
+$('#btnCloudSave').addEventListener('click', cloudSave);
+$('#btnCloudLoad').addEventListener('click', cloudLoad);
+$('#btnPing').addEventListener('click', pingTest);
+</script>
+</body>
+</html>
