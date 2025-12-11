@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>泰语↔中文 背词小测 · 在线版 (Firebase)</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#ffffff; --text:#1f2328; --muted:#6a737d; --accent:#0a7; --danger:#c00; }
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Microsoft YaHei",sans-serif;line-height:1.6}
+  header{position:sticky;top:0;background:linear-gradient(180deg,#fff,rgba(255,255,255,0.85));backdrop-filter:blur(6px);border-bottom:1px solid #eee;z-index:9}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:8px 0}
+  .card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.04);padding:16px;margin:16px 0}
+  textarea{width:100%;min-height:140px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;border-radius:10px;border:1px solid #ddd;padding:12px;box-sizing:border-box}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{appearance:none;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;background:#111;color:#fff}
+  .btn.alt{background:#eaeef2;color:#111}
+  .btn.accent{background:var(--accent);color:#fff}
+  .btn.danger{background:var(--danger);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .pill{padding:4px 8px;background:#eef2f7;border-radius:999px;font-size:12px}
+  .muted{color:var(--muted);font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .option{border:1px solid #ddd;border-radius:10px;padding:12px;cursor:pointer;background:#fff;text-align:left}
+  .option.correct{border-color:#0a7;background:#eafff6}
+  .option.wrong{border-color:#d00;background:#ffecec}
+  .prompt{font-size:28px;font-weight:700;margin:6px 0 12px;word-break:break-word}
+  .stats{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  progress{width:180px;height:14px}
+  .footer{font-size:12px;color:#8a8f98;margin-top:18px}
+  input[type="text"]{width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:18px}
+  details summary{cursor:pointer}
+  code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:2px 6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>泰语↔中文 背词小测 · 在线版 (Firebase)</h1>
+    <div class="muted">✅ 云保存（匿名登录）　✅ 错题本/只练错题　✅ 轻量SRS　✅ 本地备份</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="row">
+      <b>云端</b>
+      <button class="btn accent" id="btnSignIn">匿名登录</button>
+      <button class="btn alt" id="btnSignOut" disabled>退出</button>
+      <span class="pill" id="uid">未登录</span>
+      <button class="btn alt" id="btnCloudSave" disabled>保存到云端</button>
+      <button class="btn alt" id="btnCloudLoad" disabled>从云端读取</button>
+      <span class="muted">上限：<b id="limit"></b> 条</span>
+    </div>
+    <details class="muted" style="margin-top:8px"><summary>如何部署？（一次性）</summary>
+      <ol>
+        <li>到 <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a> 创建项目，启用 Firestore（原生模式）与 Authentication（<b>Anonymous</b>）。</li>
+        <li>复制你的 Web App 配置，粘贴到本文档底部的 <code>FIREBASE_CONFIG</code> 处。</li>
+        <li>Firestore 安全规则（仅本人可读写）：
+<pre><code>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/vocab/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}</code></pre>
+        </li>
+        <li>把本文件部署到 GitHub Pages / Netlify / Cloudflare Pages 等静态托管即可。</li>
+      </ol>
+    </details>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <b>词表</b>
+      <button class="btn alt" id="btnLoadSample">填充示例</button>
+      <input type="file" id="fileInput" accept=".csv,.txt,.json" class="btn alt" style="padding:8px 10px;background:#fff;border:1px solid #ddd" />
+      <button class="btn" id="btnParse">解析到题库</button>
+      <button class="btn alt" id="btnExportJSON">导出本地备份</button>
+      <button class="btn danger" id="btnClearLocal">清除本机数据</button>
+    </div>
+    <textarea id="raw" placeholder="รัก,爱,rak
+คิดถึง,想念,kít-thǔeng
+เรียน,学习,rian
+สวย,漂亮,sǔai
+เร็ว,快,reo
+ช้า,慢,cháa"></textarea>
+    <div class="muted">每行 <b>泰语,中文,读音/备注(可选)</b>；也支持导入 JSON。</div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <b>出题设置</b>
+      <label><input type="radio" name="mode" value="mc" checked> 选择题</label>
+      <label><input type="radio" name="mode" value="type"> 填空</label>
+      <label><input type="checkbox" id="caseTone"> 填空忽略声调/大小写</label>
+      <label><input type="checkbox" id="shuffle" checked> 随机顺序</label>
+      <label>选项数
+        <select id="optCount"><option>4</option><option>5</option><option>6</option></select>
+      </label>
+    </div>
+    <div class="row">
+      <b>方向</b>
+      <label><input type="radio" name="dir" value="th2zh" checked> 泰 → 中</label>
+      <label><input type="radio" name="dir" value="zh2th"> 中 → 泰</label>
+      <b>题源</b>
+      <label><input type="radio" name="scope" value="all" checked> 全部</label>
+      <label><input type="radio" name="scope" value="wrongs"> 仅错题</label>
+      <button class="btn accent" id="btnStart">开始测验</button>
+      <button class="btn alt" id="btnReset" disabled>重置</button>
+    </div>
+  </section>
+
+  <section class="card" id="quiz" style="display:none">
+    <div class="stats">
+      <span class="pill" id="counter">0/0</span>
+      <span>✔️ <b id="ok">0</b>　❌ <b id="ng">0</b></span>
+      <span>错题本：<b id="wrongSize">0</b> 条</span>
+      <progress id="pg" max="100" value="0"></progress>
+      <button class="btn alt" id="btnWrongRound" style="margin-left:auto">只练错题</button>
+    </div>
+    <div class="prompt" id="prompt">—</div>
+    <div id="reading" class="muted"></div>
+    <div id="mc" class="grid"></div>
+    <div id="typeBox" style="display:none">
+      <input type="text" id="answer" placeholder="请输入答案…" autocomplete="off" />
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="btnCheck">判分</button>
+        <button class="btn alt" id="btnShow">显示答案</button>
+        <span class="muted" id="feedback"></span>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="btnNext">下一题</button>
+    </div>
+  </section>
+
+  <section class="footer">
+    <div>📌 云端保存与同步依赖 Firestore；本机也会用 <code>localStorage</code> 做离线备份。</div>
+    <div>🔒 我只写入 <code>/users/{uid}/vocab/main</code>；可在安全规则中锁定仅本人可读写。</div>
+  </section>
+</main>
+
+<script type="module">
+/** ============ 配置区（请粘贴你自己的 Firebase 项目配置） ============ */
+/*const FIREBASE_CONFIG = {
+  apiKey: "PASTE_YOURS",
+  authDomain: "PASTE_YOURS.firebaseapp.com",
+  projectId: "PASTE_YOURS",
+  storageBucket: "PASTE_YOURS.appspot.com",
+  messagingSenderId: "PASTE_YOURS",
+  appId: "PASTE_YOURS"
+};
+*/
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCOUufBRgdFnFO-OD819RtdE51mEQWfYd0",
+  authDomain: "vocab-d3783.firebaseapp.com",
+  projectId: "vocab-d3783",
+  storageBucket: "vocab-d3783.firebasestorage.app",
+  messagingSenderId: "330856057864",
+  appId: "1:330856057864:web:1485b9cbf11e03ac2c15bd"
+};
+  
+/** 词条数量上限（软限制，客户端校验；可在服务端用云函数做硬限制） */
+const ENTRY_LIMIT = 300;
+document.getElementById('limit').textContent = ENTRY_LIMIT;
+
+/** ============ 引入 Firebase SDK ============ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/** ============ 本地状态/工具（与离线版一致） ============ */
+const LS_KEY = "thai_vocab_quiz_cloud";
+let bank = [];      // [{cid, th, zh, note, ok, ng}]
+let queue = [];
+let idx = 0, ok = 0, ng = 0;
+let wrongs = new Set();
+let mode="mc", dir="th2zh", scope="all", optCount=4;
+let user = null;
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => [...document.querySelectorAll(sel)];
+
+function shuffle(a){ for(let j=a.length-1;j>0;j--){ const k=Math.floor(Math.random()*(j+1)); [a[j],a[k]]=[a[k],a[j]]; } return a; }
+function reindexBank(){ bank = bank.map((x,i)=>({cid:i, th:x.th, zh:x.zh, note:x.note||"", ok:x.ok||0, ng:x.ng||0})); }
+function setStats(){
+  $('#counter').textContent = (Math.min(idx+1, queue.length))+'/'+queue.length;
+  $('#ok').textContent = ok; $('#ng').textContent = ng;
+  $('#pg').value = queue.length ? Math.round((idx/queue.length)*100) : 0;
+  $('#wrongSize').textContent = wrongs.size;
+}
+function normalize(s){
+  if(!s) return "";
+  if($('#caseTone').checked){
+    const map = {'á':'a','à':'a','â':'a','ǎ':'a','ā':'a','é':'e','è':'e','ê':'e','ě':'e','ē':'e','í':'i','ì':'i','î':'i','ǐ':'i','ī':'i','ó':'o','ò':'o','ô':'o','ǒ':'o','ō':'o','ú':'u','ù':'u','û':'u','ǔ':'u','ū':'u','ǘ':'u','ǜ':'u','ǚ':'u','ǖ':'u'};
+    s=[...s].map(ch=>map[ch]||ch).join('').toLowerCase();
+  }
+  return s.trim();
+}
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const rows = [];
+  for(const line of lines){
+    let m = line.match(/^"(.*)","(.*)"(?:,"(.*)")?$/);
+    if(m){ rows.push([m[1], m[2], m[3]||""]); continue; }
+    const cols = [];
+    let cur = "", inQ = false;
+    for(let ch of line){
+      if(ch === '"' ){ inQ = !inQ; continue; }
+      if(ch === ',' && !inQ){ cols.push(cur.trim()); cur=""; }
+      else cur+=ch;
+    }
+    cols.push(cur.trim());
+    if(cols.length>=2) rows.push([cols[0], cols[1], cols[2]||""]);
+  }
+  return rows.map(r=>({th:r[0], zh:r[1], note:r[2]||""}));
+}
+
+function buildQueue(){
+  let ids = bank.map(x=>x.cid);
+  if(scope==='wrongs'){ ids = ids.filter(id=>wrongs.has(id)); if(ids.length===0){ alert('错题本为空'); return false; } }
+  queue = [...ids];
+  if($('#shuffle').checked) shuffle(queue);
+  idx=0; ok=0; ng=0;
+  return true;
+}
+
+function startQuiz(){
+  mode = $$('input[name="mode"]').find(x=>x.checked).value;
+  dir  = $$('input[name="dir"]').find(x=>x.checked).value;
+  scope = $$('input[name="scope"]').find(x=>x.checked).value;
+  optCount = parseInt($('#optCount').value, 10);
+  if(!bank.length){ alert('请先解析词表'); return; }
+  if(!buildQueue()) return;
+  $('#quiz').style.display = '';
+  $('#btnReset').disabled = false;
+  nextQuestion();
+  persistLocal();
+}
+
+function getCard(cid){ return bank.find(x=>x.cid===cid); }
+function pickOptions(correctId){
+  const pool = bank.map(x=>x.cid).filter(id=>id!==correctId);
+  shuffle(pool);
+  const picks = pool.slice(0, Math.max(0,optCount-1));
+  return shuffle([correctId, ...picks]);
+}
+function renderMC(card){
+  const container = $('#mc'); container.innerHTML=''; $('#typeBox').style.display='none'; container.style.display='grid';
+  const opts = pickOptions(card.cid);
+  for(const cid of opts){
+    const it = getCard(cid);
+    const text = (dir==='th2zh') ? it.zh : it.th;
+    const div = document.createElement('button');
+    div.className='option'; div.textContent=text;
+    div.onclick = ()=> checkAnswer(cid===card.cid, card);
+    container.appendChild(div);
+  }
+}
+function renderType(card){
+  $('#mc').style.display='none'; $('#typeBox').style.display=''; $('#answer').value=''; $('#feedback').textContent='';
+}
+function showPrompt(card){
+  const prompt = (dir==='th2zh') ? card.th : card.zh;
+  $('#prompt').textContent = prompt;
+  $('#reading').textContent = card.note ? ('提示：'+card.note) : '';
+}
+function lightSRSRequeue(card, wasCorrect){
+  const stepBase = 4;
+  if(!wasCorrect){
+    const insertAt = Math.min(queue.length, idx + Math.max(2, stepBase - Math.min(3, card.ng)));
+    queue.splice(insertAt, 0, card.cid);
+  }else{
+    if(wrongs.has(card.cid) && card.ok >= 2) wrongs.delete(card.cid);
+  }
+}
+function checkAnswer(isCorrect, card){
+  if(isCorrect){
+    ok++; card.ok++; markButtons(card, true); lightSRSRequeue(card, true);
+  }else{
+    ng++; card.ng++; wrongs.add(card.cid); markButtons(card, false); lightSRSRequeue(card, false);
+  }
+  setStats(); persistLocal(); setTimeout(nextQuestion, 420);
+}
+function markButtons(card, wasCorrect){
+  const target = (dir==='th2zh')?card.zh:card.th;
+  [...$('#mc').children].forEach(b=>{
+    if(b.textContent===target) b.classList.add('correct');
+    else b.classList.add('wrong');
+    b.disabled=true;
+  });
+}
+function nextQuestion(){
+  if(idx>=queue.length){
+    $('#pg').value=100; $('#reading').textContent=''; $('#mc').innerHTML=''; $('#typeBox').style.display='none';
+    $('#prompt').textContent = wrongs.size>0 ? `完成！✔️${ok} / ❌${ng}。错题本 ${wrongs.size} 条，可“只练错题”。` : `完成！✔️${ok} / ❌${ng}。没有错题，真棒！`;
+    return;
+  }
+  const cid = queue[idx++]; const card = getCard(cid);
+  showPrompt(card); (mode==='mc') ? renderMC(card) : renderType(card); setStats();
+}
+function checkType(){
+  const card = getCard(queue[idx-1]);
+  const ans = $('#answer').value;
+  const target = (dir==='th2zh') ? card.zh : card.th;
+  const correct = normalize(ans)===normalize(target);
+  if(correct){ $('#feedback').textContent='✅ 正确！'; ok++; card.ok++; lightSRSRequeue(card,true); }
+  else { $('#feedback').textContent='❌ 正确：'+target; ng++; card.ng++; wrongs.add(card.cid); lightSRSRequeue(card,false); }
+  setStats(); persistLocal();
+}
+function wrongRound(){
+  scope='wrongs'; $$('input[name="scope"]').forEach(x=>x.checked=(x.value==='wrongs'));
+  if(!buildQueue()) return;
+  $('#quiz').style.display=''; nextQuestion(); persistLocal();
+}
+
+/** 本机备份（localStorage） */
+function persistLocal(){
+  const data = { bank, wrongs:[...wrongs], ts:Date.now() };
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+function restoreLocal(){
+  const s = localStorage.getItem(LS_KEY); if(!s) return false;
+  try{
+    const d = JSON.parse(s);
+    bank = d.bank||[]; wrongs = new Set(d.wrongs||[]); reindexBank(); setStats(); return bank.length>0;
+  }catch(e){ return false; }
+}
+
+/** 云端保存/载入（Firestore） */
+async function cloudSave(){
+  if(!user){ alert('请先登录'); return; }
+  if(bank.length > ENTRY_LIMIT){ alert('超过上限 '+ENTRY_LIMIT+'，请删减或分批保存'); return; }
+  const payload = { bank, wrongs:[...wrongs], updatedAt: new Date().toISOString() };
+  const ref = doc(db, 'users', user.uid, 'vocab', 'main');
+  await setDoc(ref, payload);
+  alert('已保存到云端');
+}
+async function cloudLoad(){
+  if(!user){ alert('请先登录'); return; }
+  const ref = doc(db, 'users', user.uid, 'vocab', 'main');
+  const snap = await getDoc(ref);
+  if(!snap.exists()){ alert('云端暂无数据'); return; }
+  const d = snap.data();
+  bank = d.bank||[]; wrongs = new Set(d.wrongs||[]); reindexBank(); persistLocal();
+  alert('已从云端读取 '+bank.length+' 条');
+  setStats();
+}
+
+/** 事件绑定 */
+$('#btnParse').addEventListener('click', ()=>{
+  const val = $('#raw').value.trim();
+  if(!val){ alert('请先粘贴词表'); return; }
+  if(val.startsWith('{')){
+    try{ const o = JSON.parse(val); bank = (o.bank||o)||[]; wrongs = new Set(o.wrongs||[]); }
+    catch(e){ alert('JSON 解析失败'); return; }
+  }else{ bank = parseCSV(val); }
+  if(bank.length > ENTRY_LIMIT){ alert('超过上限 '+ENTRY_LIMIT+'，当前 '+bank.length+' 条。请删减或分批。'); return; }
+  reindexBank(); alert('已解析 '+bank.length+' 条'); setStats(); persistLocal();
+});
+$('#btnLoadSample').addEventListener('click', ()=>{
+  $('#raw').value = `รัก,爱,rak
+คิดถึง,想念,kít-thǔeng
+เรียน,学习,rian
+สวย,漂亮,sǔai
+เร็ว,快,reo
+ช้า,慢,cháa
+ปลอบใจ,安慰,plɔ̀ɔp-jai
+ผิดหวัง,失望,phit-wang`;
+});
+$('#btnReset').addEventListener('click', ()=>{ idx=0; ok=0; ng=0; queue=[]; $('#quiz').style.display='none'; $('#pg').value=0; $('#ok').textContent=0; $('#ng').textContent=0; setStats(); });
+$('#btnStart').addEventListener('click', startQuiz);
+$('#btnNext').addEventListener('click', nextQuestion);
+$('#btnCheck').addEventListener('click', checkType);
+$('#btnShow').addEventListener('click', ()=>{ const c=getCard(queue[idx-1]); const t=(dir==='th2zh')?c.zh:c.th; $('#feedback').textContent='📝 答案：'+t; });
+$('#btnWrongRound').addEventListener('click', wrongRound);
+$('#btnClearLocal').addEventListener('click', ()=>{ localStorage.removeItem(LS_KEY); wrongs.clear(); alert('已清除本机数据'); setStats(); });
+$('#btnExportJSON').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify({ bank, wrongs:[...wrongs], ts:Date.now() }, null, 2)], {type:"application/json"});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='thai_vocab_quiz_backup.json'; a.click(); URL.revokeObjectURL(a.href);
+});
+
+/** 认证控制 */
+onAuthStateChanged(auth, (u)=>{
+  user = u||null;
+  $('#uid').textContent = user ? ('UID: '+user.uid) : '未登录';
+  $('#btnSignOut').disabled = !user;
+  $('#btnCloudSave').disabled = !user;
+  $('#btnCloudLoad').disabled = !user;
+});
+$('#btnSignIn').addEventListener('click', async ()=>{ await signInAnonymously(auth); alert('已登录（匿名）'); });
+$('#btnSignOut').addEventListener('click', async ()=>{ await signOut(auth); alert('已退出'); });
+
+// File input
+$('#fileInput').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const txt = await f.text();
+  if(f.name.endsWith('.json')){
+    try{ const o = JSON.parse(txt); bank=(o.bank||o)||[]; wrongs=new Set(o.wrongs||[]); }
+    catch(e){ alert('JSON 解析失败'); return; }
+  }else{ bank = parseCSV(txt); }
+  if(bank.length > ENTRY_LIMIT){ alert('超过上限 '+ENTRY_LIMIT+' 条'); return; }
+  reindexBank(); alert('已读取：'+f.name+'（'+bank.length+' 条）'); setStats(); persistLocal();
+});
+
+// 初始尝试从本地恢复
+restoreLocal();
+</script>
+</body>
+</html>
